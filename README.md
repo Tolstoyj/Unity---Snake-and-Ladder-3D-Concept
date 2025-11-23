@@ -31,6 +31,9 @@ A complete implementation of the traditional Indian Snake and Ladder board game 
 - **Turn-Based System**: Automatic turn management
 - **Smooth Animations**: Player movement and dice rolling animations
 - **Multiple Input Methods**: Spacebar or mouse click to roll dice
+- **Snakes and Ladders**: Traditional snake and ladder mechanics with automatic movement
+- **Visual Indicators**: Green lines for ladders, red lines for snakes
+- **Traditional Configuration**: Pre-configured traditional snake/ladder positions
 
 ## 📸 Screenshots
 
@@ -87,7 +90,17 @@ In-game view showing the board, dice, and player capsules during gameplay.
 - Right-click the `DiceGenerator` component
 - Select **"Fix Click Handler"**
 
-### Step 4: Setup Game Manager
+### Step 4: Setup Snake and Ladder Manager
+
+1. In the Hierarchy, create an empty GameObject named "SnakeLadderManager"
+2. Add the `SnakeLadderManager` component to it
+3. Configure snakes and ladders:
+   - **Option A (Recommended)**: Right-click the `SnakeLadderManager` component → Select **"Create Traditional Snakes and Ladders"**
+   - **Option B (Custom)**: In the Inspector, expand "Snakes And Ladders Configuration" and manually add entries
+4. Right-click the component again → Select **"Initialize Snakes and Ladders"**
+5. Visual lines will appear connecting the squares (green for ladders, red for snakes)
+
+### Step 5: Setup Game Manager
 
 1. In the Hierarchy, create an empty GameObject named "GameManager"
 2. Add the `GameManager` component to it
@@ -100,6 +113,7 @@ In-game view showing the board, dice, and player capsules during gameplay.
    **References:**
    - **Board Generator**: Drag the "Board" GameObject here
    - **Dice Generator**: Drag the "Dice" GameObject here
+   - **Snake Ladder Manager**: Drag the "SnakeLadderManager" GameObject here
    - **Player Prefab**: (Optional) Drag a player prefab, or leave empty to use default capsule
 
    **Player Settings:**
@@ -142,6 +156,30 @@ In-game view showing the board, dice, and player capsules during gameplay.
 - **Square Size**: Size of each square
 - **Spacing**: Space between squares
 - **Colors**: Even/odd square colors for checkerboard pattern
+
+### SnakeLadderManager
+
+**Purpose**: Manages snakes and ladders on the board
+
+**Key Methods:**
+- `CreateTraditionalSnakesAndLadders()`: Creates traditional snake/ladder positions
+- `InitializeSnakesAndLadders()`: Initializes and validates all snakes/ladders
+- `HasSnakeOrLadder(int squareNumber)`: Checks if a square has a snake/ladder
+- `GetDestination(int squareNumber)`: Gets the destination square
+- `AddSnakeLadder(int start, int end, bool isLadder)`: Adds a custom snake/ladder
+
+**Settings:**
+- **Snakes And Ladders Configuration**: List of all snakes and ladders
+- **Show Visual Indicators**: Enable/disable visual lines
+- **Ladder Color**: Color for ladder lines (default: green)
+- **Snake Color**: Color for snake lines (default: red)
+- **Line Width**: Thickness of indicator lines
+- **Line Height**: Height above board for lines
+
+**Context Menu Options:**
+- **Create Traditional Snakes and Ladders**: Sets up traditional positions
+- **Initialize Snakes and Ladders**: Validates and creates visual indicators
+- **Clear All Snakes and Ladders**: Removes all snakes/ladders
 
 ### DiceGenerator
 
@@ -307,6 +345,15 @@ In-game view showing the board, dice, and player capsules during gameplay.
 3. Verify board generator is assigned in GameManager
 4. Check console for error messages
 
+### Snakes and ladders not working
+**Solution:**
+1. Make sure SnakeLadderManager GameObject exists
+2. Right-click SnakeLadderManager component → "Create Traditional Snakes and Ladders"
+3. Right-click again → "Initialize Snakes and Ladders"
+4. Assign SnakeLadderManager to GameManager's "Snake Ladder Manager" field
+5. Test using GameManager context menu → "Test Snake/Ladder System"
+6. Check console for "SnakeLadderManager is null!" warnings
+
 ### Input System Warnings
 **Solution:**
 1. Go to Edit → Project Settings → Player
@@ -333,11 +380,13 @@ In-game view showing the board, dice, and player capsules during gameplay.
 
 - [ ] Board generated (right-click SnakeLadderBoardGenerator → Generate Board)
 - [ ] Dice generated (right-click DiceGenerator → Generate Dice)
-- [ ] GameManager configured (players, references set)
+- [ ] SnakeLadderManager created and initialized (right-click → Create Traditional Snakes and Ladders → Initialize)
+- [ ] GameManager configured (players, references set including SnakeLadderManager)
 - [ ] Camera in scene (tagged as MainCamera)
 - [ ] Enter Play Mode
 - [ ] Start Game (right-click GameManager → Start Game)
 - [ ] Press SPACEBAR or click dice to roll
+- [ ] Watch players automatically move on snakes and ladders!
 
 ## 🎨 Customization
 
@@ -369,6 +418,10 @@ In-game view showing the board, dice, and player capsules during gameplay.
 - Players start off the board (position 0) until they roll the starting number
 - All scripts use object-oriented design principles
 - The game supports both human and AI players simultaneously
+- Snakes and ladders are processed automatically after movement completes
+- Visual indicators (lines) show snake/ladder connections above the board
+- Snakes always go down, ladders always go up (validated automatically)
+- Multiple snakes/ladders can chain if destination also has one (with safety limit)
 
 ## 🤝 Contributing
 

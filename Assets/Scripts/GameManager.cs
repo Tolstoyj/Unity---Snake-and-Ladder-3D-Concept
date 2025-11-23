@@ -12,6 +12,7 @@ public class GameManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private SnakeLadderBoardGenerator boardGenerator;
     [SerializeField] private DiceGenerator diceGenerator;
+    [SerializeField] private SnakeLadderManager snakeLadderManager;
     [SerializeField] private GameObject playerPrefab; // Prefab for player capsule
     
     [Header("Player Settings")]
@@ -116,6 +117,15 @@ public class GameManager : MonoBehaviour
         if (diceGenerator == null)
         {
             diceGenerator = FindFirstObjectByType<DiceGenerator>();
+        }
+        
+        if (snakeLadderManager == null)
+        {
+            snakeLadderManager = FindFirstObjectByType<SnakeLadderManager>();
+            if (snakeLadderManager != null && showDebugInfo)
+            {
+                Debug.Log("SnakeLadderManager found and connected!");
+            }
         }
         
         // Validate board
@@ -457,6 +467,9 @@ public class GameManager : MonoBehaviour
                     Debug.Log($"{currentPlayer.playerName} started! They are now on square 1.");
                 }
                 
+                // Check for snake or ladder on square 1 (unlikely but possible)
+                CheckSnakeOrLadder(currentPlayer);
+                
                 // Player gets another turn after starting
                 isWaitingForDiceRoll = false;
                 StartNextTurn();
@@ -491,25 +504,130 @@ public class GameManager : MonoBehaviour
             
             MovePlayerToSquare(currentPlayer, newSquare);
             
-            // Check for extra turn (if rolled 6)
-            if (allowExtraTurnOnSix && diceValue == 6)
+            // Wait for movement to complete, then check for snake/ladder
+            StartCoroutine(WaitForMovementAndCheckSnakeLadder(currentPlayer, diceValue));
+            
+            return; // Exit early, the coroutine will handle turn progression
+        }
+    }
+    
+    private IEnumerator WaitForMovementAndCheckSnakeLadder(Player player, int diceValue)
+    {
+        // Wait for player movement to complete
+        PlayerMovement movement = player.playerObject?.GetComponent<PlayerMovement>();
+        if (movement != null)
+        {
+            while (movement.IsMoving())
+            {
+                yield return null;
+            }
+            
+            // Small delay to ensure position is updated
+            yield return new WaitForSeconds(0.1f);
+        }
+        
+        // Now check for snake/ladder
+        CheckSnakeOrLadder(player);
+        
+        // Wait again if snake/ladder moved the player
+        if (movement != null)
+        {
+            yield return new WaitForSeconds(0.2f); // Give time for teleport animation
+        }
+        
+        // Check for extra turn (if rolled 6)
+        if (allowExtraTurnOnSix && diceValue == 6)
+        {
+            if (showDebugInfo)
+            {
+                Debug.Log($"{player.playerName} rolled 6! Extra turn!");
+            }
+            
+            isWaitingForDiceRoll = false;
+            StartNextTurn(); // Same player goes again
+        }
+        else
+        {
+            // Move to next player
+            isWaitingForDiceRoll = false;
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
+            StartNextTurn();
+        }
+    }
+    
+    private void CheckSnakeOrLadder(Player player)
+    {
+        if (snakeLadderManager == null)
+        {
+            if (showDebugInfo)
+            {
+                Debug.LogWarning("SnakeLadderManager is null! Snakes and ladders will not work.");
+            }
+            return;
+        }
+        
+        int currentSquare = player.currentSquare;
+        int maxChecks = 10; // Safety limit to prevent infinite loops
+        int checkCount = 0;
+        
+        if (showDebugInfo)
+        {
+            Debug.Log($"Checking snake/ladder for {player.playerName} on square {currentSquare}");
+        }
+        
+        // Keep checking for snakes/ladders until player lands on a normal square
+        while (snakeLadderManager.HasSnakeOrLadder(currentSquare) && checkCount < maxChecks)
+        {
+            SnakeLadder sl = snakeLadderManager.GetSnakeLadder(currentSquare);
+            int destination = snakeLadderManager.GetDestination(currentSquare);
+            
+            if (sl != null && destination != currentSquare)
             {
                 if (showDebugInfo)
                 {
-                    Debug.Log($"{currentPlayer.playerName} rolled 6! Extra turn!");
+                    string message = sl.isLadder 
+                        ? $"{player.playerName} found a LADDER! Climbing from square {currentSquare} to square {destination}!"
+                        : $"{player.playerName} hit a SNAKE! Sliding down from square {currentSquare} to square {destination}!";
+                    Debug.Log(message);
                 }
                 
-                isWaitingForDiceRoll = false;
-                StartNextTurn(); // Same player goes again
+                // Move player to destination (teleport, not step-by-step)
+                TeleportPlayerToSquare(player, destination);
+                currentSquare = destination;
+                player.MoveToSquare(destination); // Update player data
+                checkCount++;
             }
             else
             {
-                // Move to next player
-                isWaitingForDiceRoll = false;
-                currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
-                StartNextTurn();
+                break;
             }
         }
+        
+        if (checkCount >= maxChecks)
+        {
+            Debug.LogWarning($"Snake/Ladder check limit reached for {player.playerName}! Possible infinite loop detected.");
+        }
+        else if (checkCount == 0 && showDebugInfo)
+        {
+            Debug.Log($"No snake/ladder found on square {currentSquare} for {player.playerName}");
+        }
+    }
+    
+    // Teleport player directly to a square (for snakes/ladders)
+    private void TeleportPlayerToSquare(Player player, int square)
+    {
+        if (player.playerObject == null)
+            return;
+        
+        PlayerMovement movement = player.playerObject.GetComponent<PlayerMovement>();
+        if (movement != null)
+        {
+            // Use SetPosition to teleport directly
+            movement.SetPosition(square);
+        }
+        
+        player.MoveToSquare(square);
+        OnPlayerMoved?.Invoke(player, square);
     }
     
     private void MovePlayerToSquare(Player player, int square)
@@ -594,6 +712,36 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogError("Input System NOT working! Keyboard.current is null. Check Project Settings > Player > Active Input Handling.");
+        }
+    }
+    
+    [ContextMenu("Test Snake/Ladder System")]
+    public void TestSnakeLadderSystem()
+    {
+        if (snakeLadderManager == null)
+        {
+            Debug.LogError("SnakeLadderManager is null! Please assign it in the Inspector.");
+            return;
+        }
+        
+        var snakesLadders = snakeLadderManager.GetAllSnakesAndLadders();
+        Debug.Log($"Total snakes and ladders configured: {snakesLadders.Count}");
+        
+        // Test a few squares
+        int[] testSquares = { 2, 8, 29, 38, 47 };
+        foreach (int square in testSquares)
+        {
+            bool hasSnakeLadder = snakeLadderManager.HasSnakeOrLadder(square);
+            if (hasSnakeLadder)
+            {
+                int destination = snakeLadderManager.GetDestination(square);
+                SnakeLadder sl = snakeLadderManager.GetSnakeLadder(square);
+                Debug.Log($"Square {square}: {(sl.isLadder ? "LADDER" : "SNAKE")} to square {destination}");
+            }
+            else
+            {
+                Debug.Log($"Square {square}: No snake/ladder");
+            }
         }
     }
 }
